@@ -5,27 +5,52 @@ var qs = require('qs')
 var db = require('./db')
 var config = require('./config')
 
-
 var User = db.UserModel
 
-getFollowees()
+var list = [];
 
 function getFollowees() {
-  // todo findAndUpdate 10
-  User.find({ crawled:0 }, null, { sort:{ agrees: -1 }, limit: 1 }, function(err, doc) {
-    var user = doc[0]
-    console.log('%s 赞%d 被关注%d 关注了%d 回答了%d /%s', user.name, user.agrees, user.followers, user.followees, user.answers, user.id)
-    user.crawled = 1
-    user.save(function(err, user){
-      if (err) {
-        console.log(err)
-        getFollowees()
-        return
-      }
-
-      getNextFollowees(user, 0)
-    })
+  User.findOneAndUpdate({crawled: 0}, {$set: {crawled: 1}}, function (err, user) {
+    if (err) {
+      console.log(err)
+      return
+    }
+    console.log('%s 赞%d 被关注%d 回答了%d %s %s', user.name, user.agrees, user.followers, user.followees, user.answers, user.id, (user.gender ? (user.gender == 2 ? '男' : '女') : ''))
+    getNextFollowees(user, 0)
   })
+  // 找不到好的办法减轻数据库压力
+  // 之前的想法是一次读取 n 个数据存入内存,并设置正在抓取的状态(crawled:1)
+  // 后来发现mongodb 无法一次修改 n 个数据,要么只能修改一个, 要么全部修改.
+  // 老代码暂时留在这里,以后想办法.
+  //if (!list.length) {
+  //  User.update({crawled: 0}, {$set: {crawled: 1}}, {sort: {agrees: -1}, multi:true, limit: LIMIT}, function (err, result) {
+  //    if (err) {
+  //      console.log(err)
+  //      return
+  //    }
+  //    console.log(result)
+  //    User.find({crawled: 1}, '', {sort: {agrees: -1}, limit: LIMIT}, function (err, docs) {
+  //      if (err) {
+  //        console.log(err)
+  //        return
+  //      }
+  //      list = docs;
+  //      getFollowees()
+  //    })
+  //  })
+  //  return
+  //}
+  //
+  //var user = list.shift();
+  //console.log('%s 赞%d 被关注%d 关注了%d 回答了%d /%s', user.name, user.agrees, user.followers, user.followees, user.answers, user.id)
+  //user.crawled = 1
+  //user.save(function (err, user) {
+  //  if (err) {
+  //    console.log(err)
+  //    return
+  //  }
+  //  getNextFollowees(user, 0)
+  //})
 }
 
 
@@ -43,9 +68,9 @@ function getNextFollowees(user, offset) {
     .end(function (err, res) {
       if (err) {
         console.log(err)
-        setTimeout(function(){
+        setTimeout(function () {
           getNextFollowees(user, offset)
-        },1000)
+        }, 1000)
         return
       }
       var msg = res.body.msg
@@ -53,33 +78,34 @@ function getNextFollowees(user, offset) {
         msg.forEach(saveUser)
         getNextFollowees(user, offset + msg.length)
       } else {
-        User.findByIdAndUpdate(user._id, {$set: {crawled: 2, followees: offset + msg.length}}, function () {
-          getFollowees()
-        })
+        user.crawled = 2
+        user.followees = offset + msg.length
+        user.save(getFollowees)
       }
     })
 }
 function saveUser(card) {
   var $ = cheerio.load(card, {decodeEntities: false})
   var $details = $('.details a')
-  var id = $('.zm-item-link-avatar').attr('href').split('/')[2]
-  User.findOne({id: id}, function (err, user) {
-    if (user) {
-      return
-    }
-
-    var brief = {
-      name: $('.zm-list-content-title a').html(),
-      id: id,
-      hash: $('.zm-rich-follow-btn').attr('data-id'),
-      intro: $('.zg-big-gray').html(),
-      followers: Number($details.eq(0).html().split(' ')[0]),
-      questions: Number($details.eq(1).html().split(' ')[0]),
-      answers: Number($details.eq(2).html().split(' ')[0]),
-      agrees: Number($details.eq(3).html().split(' ')[0]),
-      crawled: false
-    }
-    User.create(brief)
+  var $followBtn = $('.zm-rich-follow-btn')
+  var followBtnText = $followBtn.html()
+  var brief = {
+    name: $('.zm-list-content-title a').html(),
+    gender: /他/.test(followBtnText) ? 2: (/她/.test(followBtnText) ? 1 : 0),
+    id: $('.zm-item-link-avatar').attr('href').split('/')[2],
+    hash: $followBtn.attr('data-id'),
+    intro: $('.zg-big-gray').html(),
+    followers: Number($details.eq(0).html().split(' ')[0]),
+    questions: Number($details.eq(1).html().split(' ')[0]),
+    answers: Number($details.eq(2).html().split(' ')[0]),
+    agrees: Number($details.eq(3).html().split(' ')[0]),
+    crawled: 0
+  }
+  User.create(brief,function(err, doc) {
   })
 }
 
+var LIMIT = 5
+for (var i = 0; i < LIMIT; i++) {
+  getFollowees()
+}

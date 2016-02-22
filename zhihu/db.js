@@ -9,7 +9,8 @@ var Schema = mongoose.Schema
 
 var userSchema = new Schema({
   name: String,
-  id: String,
+  gender: Number,
+  id: {type: String, unique: true, index: true},
   hash: String,
   intro: String,
   followers: Number,
@@ -18,13 +19,18 @@ var userSchema = new Schema({
   answers: Number,
   agrees: Number,
   crawled: Number
-})
+}, {strict: true})
+
 // add a findAndModify method for mongoose which it dosen't support
 userSchema.statics.findAndModify = function (query, sort, doc, options, callback) {
   return this.collection.findAndModify(query, sort, doc, options, callback);
 }
 
 var UserModel = mongoose.model('UserModel', userSchema, 'user')
+
+UserModel.on('index', function(err) {
+  if (err) console.log(err);
+})
 
 module.exports = {
   UserModel: UserModel
