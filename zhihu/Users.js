@@ -64,8 +64,8 @@ function getNextFollowees(user, offset) {
       'params': JSON.stringify({'offset': offset, "order_by": "created", "hash_id": user.hash}),
       '_xsrf': config._xsrf
     }))
-    /**  @param res.body.msg */
     .end(function (err, res) {
+      /**  @param res.body.msg */
       if (err) {
         console.log(err)
         setTimeout(function () {
@@ -89,23 +89,35 @@ function saveUser(card) {
   var $details = $('.details a')
   var $followBtn = $('.zm-rich-follow-btn')
   var followBtnText = $followBtn.html()
-  var brief = {
-    name: $('.zm-list-content-title a').html(),
-    gender: /他/.test(followBtnText) ? 2: (/她/.test(followBtnText) ? 1 : 0),
-    id: $('.zm-item-link-avatar').attr('href').split('/')[2],
-    hash: $followBtn.attr('data-id'),
-    intro: $('.zg-big-gray').html(),
-    followers: Number($details.eq(0).html().split(' ')[0]),
-    questions: Number($details.eq(1).html().split(' ')[0]),
-    answers: Number($details.eq(2).html().split(' ')[0]),
-    agrees: Number($details.eq(3).html().split(' ')[0]),
-    crawled: 0
+  try {
+
+    var brief = {
+      name: $('.zm-list-content-title a').html(),
+      gender: /他/.test(followBtnText) ? 2 : (/她/.test(followBtnText) ? 1 : 0),
+      id: $('.zm-item-link-avatar').attr('href').split('/')[2],
+      hash: $followBtn.attr('data-id'),
+      intro: $('.zg-big-gray').html(),
+      followers: Number($details.eq(0).html().split(' ')[0]),
+      questions: Number($details.eq(1).html().split(' ')[0]),
+      answers: Number($details.eq(2).html().split(' ')[0]),
+      agrees: Number($details.eq(3).html().split(' ')[0]),
+      crawled: 0
+    }
+  } catch (e) {
+    console.log($('.zm-list-content-title a').html())
+    console.log($('.zm-item-link-avatar').html())
   }
-  User.create(brief,function(err, doc) {
+
+  User.create(brief, function (err, doc) {
   })
 }
 
-var LIMIT = 5
+//function getUserDetailProfile(userId) {
+//  request(config.url.people)
+//}
+
+
+var LIMIT = 6
 for (var i = 0; i < LIMIT; i++) {
-  getFollowees()
+  setTimeout(getFollowees, 500 * i)
 }
