@@ -10,7 +10,16 @@ var User = db.UserModel
 var list = [];
 
 function getFollowees() {
-  User.findOneAndUpdate({crawled: 0}, {$set: {crawled: 1}}, function (err, user) {
+  User.findOneAndUpdate({
+    crawled: 0, 
+    agrees: {
+      $gt: 500
+    }
+  }, {
+    $set: {
+      crawled: 1
+    }
+  }, function (err, user) {
     if (err) {
       console.log(err)
       return
