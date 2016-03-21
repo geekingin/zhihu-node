@@ -13,7 +13,7 @@ function getFollowees() {
   User.findOneAndUpdate({
     crawled: 0, 
     agrees: {
-      $gt: 500
+      $gt: 100
     }
   }, {
     $set: {
